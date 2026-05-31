@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.mcpbuilder.ia.app-debug-35:/drawable_splash_screen.xml.flat",
+        "source": "com.mcpbuilder.ia.app-main-37:/drawable/splash_screen.xml"
+    },
+    {
+        "merged": "com.mcpbuilder.ia.app-debug-35:/drawable_ic_launcher.xml.flat",
+        "source": "com.mcpbuilder.ia.app-main-37:/drawable/ic_launcher.xml"
+    }
+]

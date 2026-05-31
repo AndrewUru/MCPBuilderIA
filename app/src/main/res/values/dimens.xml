@@ -1,0 +1,12 @@
+<resources>
+    <dimen name="space_xs">4dp</dimen>
+    <dimen name="space_sm">8dp</dimen>
+    <dimen name="space_md">12dp</dimen>
+    <dimen name="space_lg">16dp</dimen>
+    <dimen name="space_xl">28dp</dimen>
+    <dimen name="radius_sm">6dp</dimen>
+    <dimen name="radius_md">8dp</dimen>
+    <dimen name="input_height">50dp</dimen>
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="primary_button_height">52dp</dimen>
+</resources>

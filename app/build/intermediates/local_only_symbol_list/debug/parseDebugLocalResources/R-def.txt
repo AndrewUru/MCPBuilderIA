@@ -1,0 +1,37 @@
+R_DEF: Internal format may change without notice
+local
+color color_button_light
+color color_card
+color color_code_bg
+color color_code_line
+color color_code_text
+color color_dark_button
+color color_hero_bg
+color color_hero_line
+color color_ink
+color color_input_hint
+color color_line
+color color_muted
+color color_primary
+color color_primary_soft
+color color_secondary
+color color_secondary_soft
+color color_status_line
+color color_success
+color color_surface
+dimen button_height
+dimen input_height
+dimen primary_button_height
+dimen radius_md
+dimen radius_sm
+dimen space_lg
+dimen space_md
+dimen space_sm
+dimen space_xl
+dimen space_xs
+drawable ic_launcher
+drawable splash_screen
+string app_name
+style AppTheme
+style AppTheme.Splash
+style Widget.McpBuilder.Button
