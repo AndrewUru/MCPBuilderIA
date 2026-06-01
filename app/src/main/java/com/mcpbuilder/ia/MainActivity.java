@@ -80,7 +80,7 @@ public class MainActivity extends Activity {
     private String currentIntent = "";
     private String activePreview = "Tools";
     private final String[] connectors = new String[]{
-            "WooCommerce", "WhatsApp Business", "Google Sheets", "Supabase", "WordPress", "Notion", "CRM propio", "ERP pequeno"
+            "WooCommerce", "Elementor", "WhatsApp Business", "Google Sheets", "Supabase", "WordPress", "Notion", "CRM propio", "ERP pequeno"
     };
 
     @Override
@@ -143,14 +143,14 @@ public class MainActivity extends Activity {
         LinearLayout purpose = panel();
         root.addView(purpose, panelParams());
         purpose.addView(sectionTitle("Para que sirve"));
-        purpose.addView(bodyText("Esta APK ayuda a crear la estructura de un servidor MCP para conectar una IA con sistemas como WooCommerce, WordPress, Google Sheets, Supabase, Notion, CRMs o ERPs propios."));
+        purpose.addView(bodyText("Esta APK ayuda a crear la estructura de un servidor MCP para conectar una IA con sistemas como WooCommerce, WordPress, Elementor, Google Sheets, Supabase, Notion, CRMs o ERPs propios."));
         purpose.addView(bodyText("En vez de empezar desde cero, eliges el tipo de conector, describes lo que necesitas y la app genera archivos base, variables de entorno, documentacion, prompts y un ZIP exportable."));
 
         LinearLayout cases = panel();
         root.addView(cases, panelParams());
         cases.addView(sectionTitle("Casos de uso practico"));
         cases.addView(useCase("Tienda online", "Consultar productos, actualizar stock, revisar pedidos y crear informes semanales de ventas."));
-        cases.addView(useCase("Web WordPress", "Publicar borradores, revisar paginas, leer entradas y preparar tareas de mantenimiento."));
+        cases.addView(useCase("Web WordPress y Elementor", "Crear borradores, paginas visuales con widgets, revisar entradas y preparar tareas de mantenimiento."));
         cases.addView(useCase("Google Sheets", "Convertir hojas en una base de datos ligera para reportes, seguimiento de leads o inventario."));
         cases.addView(useCase("CRM o ERP propio", "Dar a la IA acceso controlado a clientes, facturas, tickets o procesos internos."));
         cases.addView(useCase("Prototipos MCP", "Generar una base tecnica rapida para probar herramientas antes de desarrollarlas en serio."));
@@ -158,7 +158,7 @@ public class MainActivity extends Activity {
         LinearLayout flow = panel();
         root.addView(flow, panelParams());
         flow.addView(sectionTitle("Como se usa"));
-        flow.addView(stepItem("1", "Elige el conector", "WooCommerce, WhatsApp Business, WordPress, Sheets, Supabase o una API propia."));
+        flow.addView(stepItem("1", "Elige el conector", "WooCommerce, Elementor, WhatsApp Business, WordPress, Sheets, Supabase o una API propia."));
         flow.addView(stepItem("2", "Describe el trabajo", "Explica que datos debe consultar, que acciones puede ejecutar y que limites debe respetar."));
         flow.addView(stepItem("3", "Revisa y exporta", "Comprueba tools, variables, codigo, docs y prompts antes de crear el ZIP."));
 
@@ -193,7 +193,7 @@ public class MainActivity extends Activity {
         TextView title = text("MCP Builder IA", 28, INK, true);
         header.addView(title);
 
-        TextView subtitle = text("Crea conectores MCP para WordPress, WooCommerce y datos de negocio.", 14, MUTED, false);
+        TextView subtitle = text("Crea conectores MCP para WordPress, Elementor, WooCommerce y datos de negocio.", 14, MUTED, false);
         subtitle.setPadding(0, dp(8), 0, dp(12));
         header.addView(subtitle);
 
@@ -393,7 +393,15 @@ public class MainActivity extends Activity {
             orbitView.setConnector(connector);
             orbitView.invalidate();
         }
-        if (connector.equals("WordPress")) {
+        if (connector.equals("Elementor")) {
+            credentialsTitle.setText("Conexion WordPress + Elementor");
+            siteUrlInput.setHint("https://tu-web.com");
+            usernameLabel.setText("Usuario WordPress");
+            usernameInput.setHint("admin");
+            secretLabel.setText("Application password");
+            secretInput.setHint("xxxx xxxx xxxx xxxx xxxx xxxx");
+            connectorHelpText.setText("Requiere WordPress con Elementor activo. Recomendado: tema Hello Elementor y endpoint MCP opcional incluido en el ZIP.");
+        } else if (connector.equals("WordPress")) {
             credentialsTitle.setText("Conexion WordPress");
             siteUrlInput.setHint("https://tu-web.com");
             usernameLabel.setText("Usuario");
@@ -771,6 +779,7 @@ public class MainActivity extends Activity {
     private String connectorCode(String connector) {
         if (connector.equals("WooCommerce")) return "WC";
         if (connector.equals("WhatsApp Business")) return "WA";
+        if (connector.equals("Elementor")) return "EL";
         if (connector.equals("Google Sheets")) return "GS";
         if (connector.equals("Supabase")) return "SB";
         if (connector.equals("WordPress")) return "WP";
@@ -781,6 +790,7 @@ public class MainActivity extends Activity {
 
     private String shortConnectorName(String connector) {
         if (connector.equals("WhatsApp Business")) return "WhatsApp";
+        if (connector.equals("Elementor")) return "Elementor";
         if (connector.equals("Google Sheets")) return "Sheets";
         if (connector.equals("CRM propio")) return "CRM";
         if (connector.equals("ERP pequeno")) return "ERP";
@@ -790,6 +800,7 @@ public class MainActivity extends Activity {
     private String connectorType(String connector) {
         if (connector.equals("WooCommerce")) return "Commerce";
         if (connector.equals("WhatsApp Business")) return "Mensajes";
+        if (connector.equals("Elementor")) return "Builder";
         if (connector.equals("Google Sheets")) return "Datos";
         if (connector.equals("Supabase")) return "Backend";
         if (connector.equals("WordPress")) return "CMS";
@@ -801,6 +812,7 @@ public class MainActivity extends Activity {
     private String connectorDescription(String connector) {
         if (connector.equals("WooCommerce")) return "Productos, pedidos, stock, clientes y reportes para tiendas online.";
         if (connector.equals("WhatsApp Business")) return "Mensajes, plantillas, contactos y automatizaciones conversacionales.";
+        if (connector.equals("Elementor")) return "Paginas y publicaciones con secciones, columnas y widgets de Elementor sobre Hello Elementor.";
         if (connector.equals("Google Sheets")) return "Hojas como base ligera para inventarios, leads, operaciones y reporting.";
         if (connector.equals("Supabase")) return "Tablas, autenticacion, storage y acciones seguras sobre datos de producto.";
         if (connector.equals("WordPress")) return "Entradas, paginas, usuarios y mantenimiento editorial con API REST.";
@@ -812,6 +824,7 @@ public class MainActivity extends Activity {
     private int connectorColor(String connector) {
         if (connector.equals("WooCommerce")) return Color.rgb(123, 75, 213);
         if (connector.equals("WhatsApp Business")) return Color.rgb(37, 211, 102);
+        if (connector.equals("Elementor")) return Color.rgb(214, 42, 118);
         if (connector.equals("Google Sheets")) return Color.rgb(15, 157, 88);
         if (connector.equals("Supabase")) return Color.rgb(62, 207, 142);
         if (connector.equals("WordPress")) return Color.rgb(33, 117, 155);
@@ -823,6 +836,7 @@ public class MainActivity extends Activity {
     private int connectorAccent(String connector) {
         if (connector.equals("WooCommerce")) return Color.rgb(0, 240, 255);
         if (connector.equals("WhatsApp Business")) return Color.rgb(7, 94, 84);
+        if (connector.equals("Elementor")) return Color.rgb(139, 92, 246);
         if (connector.equals("Google Sheets")) return Color.rgb(110, 231, 183);
         if (connector.equals("Supabase")) return Color.rgb(19, 78, 74);
         if (connector.equals("WordPress")) return Color.rgb(96, 165, 250);

@@ -51,6 +51,13 @@ final class ProjectGenerator {
             if (hasAny(lower, "pagina", "page")) tools.add("search_pages");
             if (hasAny(lower, "media", "imagen", "archivo")) tools.add("list_media");
             if (hasAny(lower, "usuario", "cliente", "autor")) tools.add("list_users");
+        } else if (selectedConnector.equals("Elementor")) {
+            tools.add("check_elementor_environment");
+            tools.add("create_elementor_page");
+            tools.add("create_elementor_post");
+            tools.add("list_elementor_templates");
+            if (hasAny(lower, "actualizar", "editar", "update")) tools.add("update_elementor_content");
+            if (hasAny(lower, "media", "imagen", "archivo")) tools.add("list_media");
         } else if (selectedConnector.equals("Google Sheets")) {
             tools.add("read_rows");
             tools.add("append_row");
@@ -84,6 +91,11 @@ final class ProjectGenerator {
         files.put(".env.example", envExample(input));
         files.put("src/server.js", serverJs(input.connector, tools));
         files.put("src/client.js", clientJs(input.connector));
+        if (input.connector.equals("Elementor")) {
+            files.put("src/elementor-layouts.js", elementorLayoutsJs());
+            files.put("wordpress/elementor-mcp-endpoint.php", elementorEndpointPhp());
+            files.put("docs/elementor.md", elementorDocs());
+        }
         files.put("docs/README.md", readme(input, tools));
         files.put("prompts/usage.md", prompts(input.connector, tools));
         files.put("mcp.config.example.json", configJson(input.projectName));
@@ -122,10 +134,11 @@ final class ProjectGenerator {
                     + "WHATSAPP_PHONE_NUMBER_ID=" + valueOrFallback(input.username, "123456789012345") + "\n"
                     + "WHATSAPP_ACCESS_TOKEN=EAAG...\n";
         }
-        if (input.connector.equals("WordPress")) {
+        if (input.connector.equals("WordPress") || input.connector.equals("Elementor")) {
             return "WORDPRESS_URL=" + valueOrFallback(input.siteUrl, "https://tu-web.com") + "\n"
                     + "WORDPRESS_USER=" + valueOrFallback(input.username, "admin") + "\n"
-                    + "WORDPRESS_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx\n";
+                    + "WORDPRESS_APP_PASSWORD=xxxx xxxx xxxx xxxx xxxx xxxx\n"
+                    + (input.connector.equals("Elementor") ? "ELEMENTOR_REQUIRED_THEME=hello-elementor\n" : "");
         }
         if (input.connector.equals("Google Sheets")) {
             return "GOOGLE_SERVICE_ACCOUNT_JSON={}\n"
@@ -158,6 +171,15 @@ final class ProjectGenerator {
                     + "  const base = requiredEnv('WORDPRESS_URL');\n"
                     + "  const auth = Buffer.from(`${requiredEnv('WORDPRESS_USER')}:${requiredEnv('WORDPRESS_APP_PASSWORD')}`).toString('base64');\n"
                     + "  return request(`${base}/wp-json/wp/v2${path}`, auth, options, 'WordPress');\n"
+                    + "}\n\n"
+                    + sharedClientHelpers("Basic");
+        }
+        if (connector.equals("Elementor")) {
+            return "export async function api(path, options = {}) {\n"
+                    + "  const base = requiredEnv('WORDPRESS_URL');\n"
+                    + "  const auth = Buffer.from(`${requiredEnv('WORDPRESS_USER')}:${requiredEnv('WORDPRESS_APP_PASSWORD')}`).toString('base64');\n"
+                    + "  const route = path.startsWith('/mcp-builder/') ? `/wp-json${path}` : `/wp-json/wp/v2${path}`;\n"
+                    + "  return request(`${base}${route}`, auth, options, 'WordPress Elementor');\n"
                     + "}\n\n"
                     + sharedClientHelpers("Basic");
         }
@@ -205,7 +227,11 @@ final class ProjectGenerator {
         js.append("import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';\n");
         js.append("import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';\n");
         js.append("import { z } from 'zod';\n");
-        js.append("import { api } from './client.js';\n\n");
+        js.append("import { api } from './client.js';\n");
+        if (connector.equals("Elementor")) {
+            js.append("import { buildElementorLayout } from './elementor-layouts.js';\n");
+        }
+        js.append("\n");
         js.append("const server = new McpServer({ name: '").append(connector.toLowerCase(Locale.ROOT).replace(" ", "-")).append("-mcp', version: '0.1.0' });\n\n");
         for (String tool : tools) {
             js.append(toolDefinition(tool));
@@ -317,18 +343,169 @@ final class ProjectGenerator {
                     + "  return asText(result);\n"
                     + "});\n\n";
         }
+        if (tool.equals("check_elementor_environment")) {
+            return "server.tool('check_elementor_environment', {}, async () => {\n"
+                    + "  const result = await api('/mcp-builder/v1/elementor-environment');\n"
+                    + "  return asText(result);\n"
+                    + "});\n\n";
+        }
+        if (tool.equals("create_elementor_page")) {
+            return "server.tool('create_elementor_page', {\n"
+                    + "  title: z.string().min(1),\n"
+                    + "  status: z.enum(['draft', 'publish']).default('draft'),\n"
+                    + "  sections: z.array(z.object({ heading: z.string().min(1), text: z.string().min(1), ctaText: z.string().optional(), ctaUrl: z.string().url().optional() })).min(1)\n"
+                    + "}, async ({ title, status, sections }) => {\n"
+                    + "  const elementorData = buildElementorLayout(sections);\n"
+                    + "  const result = await api('/mcp-builder/v1/elementor-content', {\n"
+                    + "    method: 'POST',\n"
+                    + "    body: JSON.stringify({ type: 'page', title, status, elementorData, template: 'elementor_canvas' })\n"
+                    + "  });\n"
+                    + "  return asText(result);\n"
+                    + "});\n\n";
+        }
+        if (tool.equals("create_elementor_post")) {
+            return "server.tool('create_elementor_post', {\n"
+                    + "  title: z.string().min(1),\n"
+                    + "  excerpt: z.string().optional(),\n"
+                    + "  status: z.enum(['draft', 'publish']).default('draft'),\n"
+                    + "  sections: z.array(z.object({ heading: z.string().min(1), text: z.string().min(1), ctaText: z.string().optional(), ctaUrl: z.string().url().optional() })).min(1)\n"
+                    + "}, async ({ title, excerpt, status, sections }) => {\n"
+                    + "  const elementorData = buildElementorLayout(sections);\n"
+                    + "  const result = await api('/mcp-builder/v1/elementor-content', {\n"
+                    + "    method: 'POST',\n"
+                    + "    body: JSON.stringify({ type: 'post', title, excerpt, status, elementorData })\n"
+                    + "  });\n"
+                    + "  return asText(result);\n"
+                    + "});\n\n";
+        }
+        if (tool.equals("list_elementor_templates")) {
+            return "server.tool('list_elementor_templates', { search: z.string().optional(), page: z.number().int().positive().optional() }, async ({ search, page = 1 }) => {\n"
+                    + "  const params = new URLSearchParams({ per_page: '20', page: String(page), status: 'publish' });\n"
+                    + "  if (search) params.set('search', search);\n"
+                    + "  const result = await api(`/elementor_library?${params}`);\n"
+                    + "  return asText(result);\n"
+                    + "});\n\n";
+        }
+        if (tool.equals("update_elementor_content")) {
+            return "server.tool('update_elementor_content', {\n"
+                    + "  postId: z.number().int().positive(),\n"
+                    + "  title: z.string().optional(),\n"
+                    + "  status: z.enum(['draft', 'publish', 'private']).optional(),\n"
+                    + "  sections: z.array(z.object({ heading: z.string().min(1), text: z.string().min(1), ctaText: z.string().optional(), ctaUrl: z.string().url().optional() })).optional()\n"
+                    + "}, async ({ postId, title, status, sections }) => {\n"
+                    + "  const payload = { postId, title, status };\n"
+                    + "  if (sections) payload.elementorData = buildElementorLayout(sections);\n"
+                    + "  const result = await api('/mcp-builder/v1/elementor-content', { method: 'PUT', body: JSON.stringify(payload) });\n"
+                    + "  return asText(result);\n"
+                    + "});\n\n";
+        }
         return "server.tool('" + tool + "', { query: z.string().optional() }, async ({ query }) => {\n"
                 + "  const result = { tool: '" + tool + "', query, nextStep: 'Implementa aqui la llamada concreta a la API del cliente.' };\n"
                 + "  return asText(result);\n"
                 + "});\n\n";
     }
 
+    private static String elementorLayoutsJs() {
+        return "import crypto from 'node:crypto';\n\n"
+                + "export function buildElementorLayout(sections) {\n"
+                + "  return sections.map((section) => ({\n"
+                + "    id: id(),\n"
+                + "    elType: 'container',\n"
+                + "    settings: { content_width: 'boxed', gap: 'default', padding: { unit: 'px', top: '72', right: '24', bottom: '72', left: '24', isLinked: false } },\n"
+                + "    elements: [\n"
+                + "      widget('heading', { title: section.heading, header_size: 'h2', align: 'center' }),\n"
+                + "      widget('text-editor', { editor: `<p>${escapeHtml(section.text)}</p>`, align: 'center' }),\n"
+                + "      ...(section.ctaText ? [widget('button', { text: section.ctaText, link: { url: section.ctaUrl || '#' }, align: 'center', button_type: 'info' })] : [])\n"
+                + "    ]\n"
+                + "  }));\n"
+                + "}\n\n"
+                + "function widget(widgetType, settings) {\n"
+                + "  return { id: id(), elType: 'widget', widgetType, settings, elements: [] };\n"
+                + "}\n\n"
+                + "function id() {\n"
+                + "  return crypto.randomBytes(4).toString('hex');\n"
+                + "}\n\n"
+                + "function escapeHtml(value) {\n"
+                + "  return String(value).replace(/[&<>\\\"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\\\"': '&quot;', \"'\": '&#39;' }[char]));\n"
+                + "}\n";
+    }
+
+    private static String elementorEndpointPhp() {
+        return "<?php\n"
+                + "/**\n"
+                + " * Plugin Name: MCP Builder Elementor Endpoint\n"
+                + " * Description: Endpoint REST para crear paginas y entradas Elementor desde un servidor MCP.\n"
+                + " */\n\n"
+                + "add_action('rest_api_init', function () {\n"
+                + "    register_rest_route('mcp-builder/v1', '/elementor-environment', [\n"
+                + "        'methods' => 'GET',\n"
+                + "        'permission_callback' => function () { return current_user_can('edit_posts'); },\n"
+                + "        'callback' => function () {\n"
+                + "            $theme = wp_get_theme();\n"
+                + "            return [\n"
+                + "                'elementor_active' => did_action('elementor/loaded') > 0,\n"
+                + "                'theme' => $theme->get_stylesheet(),\n"
+                + "                'hello_elementor_recommended' => $theme->get_stylesheet() === 'hello-elementor',\n"
+                + "            ];\n"
+                + "        },\n"
+                + "    ]);\n\n"
+                + "    register_rest_route('mcp-builder/v1', '/elementor-content', [\n"
+                + "        'methods' => ['POST', 'PUT'],\n"
+                + "        'permission_callback' => function () { return current_user_can('edit_pages'); },\n"
+                + "        'callback' => 'mcp_builder_save_elementor_content',\n"
+                + "    ]);\n"
+                + "});\n\n"
+                + "function mcp_builder_save_elementor_content(WP_REST_Request $request) {\n"
+                + "    if (!did_action('elementor/loaded')) {\n"
+                + "        return new WP_Error('elementor_missing', 'Elementor debe estar activo.', ['status' => 400]);\n"
+                + "    }\n"
+                + "    $data = $request->get_json_params();\n"
+                + "    $post_id = isset($data['postId']) ? absint($data['postId']) : 0;\n"
+                + "    $postarr = [\n"
+                + "        'ID' => $post_id,\n"
+                + "        'post_type' => sanitize_key($data['type'] ?? 'page'),\n"
+                + "        'post_title' => sanitize_text_field($data['title'] ?? 'Nueva pagina Elementor'),\n"
+                + "        'post_status' => sanitize_key($data['status'] ?? 'draft'),\n"
+                + "        'post_excerpt' => sanitize_text_field($data['excerpt'] ?? ''),\n"
+                + "    ];\n"
+                + "    $post_id = $post_id ? wp_update_post($postarr, true) : wp_insert_post($postarr, true);\n"
+                + "    if (is_wp_error($post_id)) return $post_id;\n"
+                + "    if (!empty($data['template'])) update_post_meta($post_id, '_wp_page_template', sanitize_key($data['template']));\n"
+                + "    if (isset($data['elementorData'])) {\n"
+                + "        update_post_meta($post_id, '_elementor_edit_mode', 'builder');\n"
+                + "        update_post_meta($post_id, '_elementor_template_type', $postarr['post_type'] === 'page' ? 'wp-page' : 'wp-post');\n"
+                + "        update_post_meta($post_id, '_elementor_version', defined('ELEMENTOR_VERSION') ? ELEMENTOR_VERSION : 'latest');\n"
+                + "        update_post_meta($post_id, '_elementor_data', wp_slash(wp_json_encode($data['elementorData'])));\n"
+                + "    }\n"
+                + "    return ['id' => $post_id, 'edit_url' => admin_url('post.php?post=' . $post_id . '&action=elementor')];\n"
+                + "}\n";
+    }
+
+    private static String elementorDocs() {
+        return "# Elementor\n\n"
+                + "## Requisitos recomendados\n"
+                + "- WordPress con Elementor activo.\n"
+                + "- Tema `Hello Elementor` activo para trabajar sobre un lienzo limpio y compatible.\n"
+                + "- Usuario con permisos para editar paginas y entradas.\n"
+                + "- Application Password de WordPress para autenticar el servidor MCP.\n\n"
+                + "## Endpoint incluido\n"
+                + "Copia `wordpress/elementor-mcp-endpoint.php` en `wp-content/plugins/mcp-builder-elementor-endpoint/mcp-builder-elementor-endpoint.php` y activalo desde WordPress.\n\n"
+                + "Este endpoint guarda las claves meta de Elementor desde WordPress, evitando depender de que `_elementor_data` este expuesto directamente en REST.\n\n"
+                + "## Widgets iniciales\n"
+                + "El layout generado usa containers, `heading`, `text-editor` y `button`. Puedes ampliar `src/elementor-layouts.js` con mas widgets como image, icon-list, form o shortcode.\n";
+    }
+
     private static String readme(ProjectInput input, List<String> tools) {
+        String elementorNote = input.connector.equals("Elementor")
+                ? "\n## Elementor y tema\n"
+                + "Este conector asume Elementor activo y recomienda usar el tema `Hello Elementor` para que las paginas generadas partan de un lienzo limpio. Instala el endpoint de `wordpress/` antes de crear contenido Elementor.\n\n"
+                : "";
         return "# " + input.projectName + "\n\n"
                 + "Conector MCP generado para " + input.connector + ".\n\n"
                 + "## Objetivo\n" + input.intent + "\n\n"
                 + "## Instalacion\n"
                 + "```bash\nnpm install\ncp .env.example .env\nnpm run check\nnpm start\n```\n\n"
+                + elementorNote
                 + "## Seguridad\n"
                 + "- No subas el archivo `.env` al repositorio.\n"
                 + "- Revisa manualmente las tools que modifican datos antes de usarlas con clientes reales.\n\n"

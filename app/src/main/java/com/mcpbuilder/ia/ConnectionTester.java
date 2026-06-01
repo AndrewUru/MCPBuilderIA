@@ -40,7 +40,7 @@ final class ConnectionTester {
 
     private static Endpoint endpointFor(ProjectInput input) {
         String baseUrl = trimSlash(input.siteUrl);
-        if (input.connector.equals("WordPress")) {
+        if (input.connector.equals("WordPress") || input.connector.equals("Elementor")) {
             return new Endpoint(baseUrl + "/wp-json/wp/v2/users/me", input.username, input.secret);
         }
         if (input.connector.equals("WooCommerce")) {
