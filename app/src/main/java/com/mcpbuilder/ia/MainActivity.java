@@ -1,9 +1,13 @@
 package com.mcpbuilder.ia;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -56,6 +60,10 @@ public class MainActivity extends Activity {
     private TextView usernameLabel;
     private TextView secretLabel;
     private TextView connectorHelpText;
+    private TextView connectorSummaryTitle;
+    private TextView connectorSummaryText;
+    private LinearLayout connectorGallery;
+    private ConnectorOrbitView orbitView;
     private TextView previewText;
     private TextView previewStatsText;
     private TextView statusText;
@@ -71,6 +79,9 @@ public class MainActivity extends Activity {
     private String currentConnector = "WooCommerce";
     private String currentIntent = "";
     private String activePreview = "Tools";
+    private final String[] connectors = new String[]{
+            "WooCommerce", "WhatsApp Business", "Google Sheets", "Supabase", "WordPress", "Notion", "CRM propio", "ERP pequeno"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -117,8 +128,11 @@ public class MainActivity extends Activity {
         subtitle.setPadding(0, dp(8), 0, dp(14));
         hero.addView(subtitle);
 
+        hero.addView(brandVisual(false));
+
         LinearLayout heroMeta = new LinearLayout(this);
         heroMeta.setOrientation(LinearLayout.HORIZONTAL);
+        heroMeta.setPadding(0, dp(14), 0, 0);
         hero.addView(heroMeta);
         heroMeta.addView(pill("Conectores", BLUE, colors.primarySoft));
         TextView secondPill = pill("Automatizacion", TEAL, colors.secondarySoft);
@@ -183,8 +197,11 @@ public class MainActivity extends Activity {
         subtitle.setPadding(0, dp(8), 0, dp(12));
         header.addView(subtitle);
 
+        header.addView(brandVisual(true));
+
         LinearLayout headerMeta = new LinearLayout(this);
         headerMeta.setOrientation(LinearLayout.HORIZONTAL);
+        headerMeta.setPadding(0, dp(14), 0, 0);
         header.addView(headerMeta);
         headerMeta.addView(pill("MVP nativo", TEAL, colors.secondarySoft));
         TextView filesPill = pill("ZIP listo", BLUE, colors.primarySoft);
@@ -229,14 +246,23 @@ public class MainActivity extends Activity {
 
         form.addView(label("Conector"));
         connectorSpinner = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, new String[]{
-                "WooCommerce", "WhatsApp Business", "Google Sheets", "Supabase", "WordPress", "Notion", "CRM propio", "ERP pequeno"
-        });
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, connectors);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         connectorSpinner.setAdapter(adapter);
         connectorSpinner.setPadding(dp(10), 0, dp(10), 0);
         connectorSpinner.setBackground(bg(CARD, LINE, 6));
-        form.addView(connectorSpinner, fixedHeight(50));
+        form.addView(connectorGallery());
+        form.addView(connectorSpinner, fixedHeight(48));
+        LinearLayout connectorSummary = new LinearLayout(this);
+        connectorSummary.setOrientation(LinearLayout.VERTICAL);
+        connectorSummary.setPadding(dp(14), dp(12), dp(14), dp(12));
+        connectorSummary.setBackground(bg(colors.buttonLight, colors.heroLine, 8));
+        connectorSummaryTitle = text("WooCommerce", 14, INK, true);
+        connectorSummaryText = text(connectorDescription("WooCommerce"), 12, MUTED, false);
+        connectorSummaryText.setPadding(0, dp(4), 0, 0);
+        connectorSummary.addView(connectorSummaryTitle);
+        connectorSummary.addView(connectorSummaryText);
+        form.addView(connectorSummary, matchWrap());
 
         form.addView(divider());
         credentialsTitle = label("Conexion");
@@ -359,6 +385,14 @@ public class MainActivity extends Activity {
 
     private void updateConnectorFields() {
         String connector = connectorSpinner == null ? "WooCommerce" : connectorSpinner.getSelectedItem().toString();
+        currentConnector = connector;
+        refreshConnectorGallery();
+        if (connectorSummaryTitle != null) connectorSummaryTitle.setText(connector);
+        if (connectorSummaryText != null) connectorSummaryText.setText(connectorDescription(connector));
+        if (orbitView != null) {
+            orbitView.setConnector(connector);
+            orbitView.invalidate();
+        }
         if (connector.equals("WordPress")) {
             credentialsTitle.setText("Conexion WordPress");
             siteUrlInput.setHint("https://tu-web.com");
@@ -391,6 +425,82 @@ public class MainActivity extends Activity {
             secretLabel.setText("Token o secreto");
             secretInput.setHint("xxx");
             connectorHelpText.setText("Para APIs propias, usa la URL base y un token de prueba con permisos limitados.");
+        }
+    }
+
+    private View brandVisual(boolean compact) {
+        LinearLayout visual = new LinearLayout(this);
+        visual.setOrientation(LinearLayout.VERTICAL);
+        visual.setPadding(dp(12), dp(12), dp(12), dp(12));
+        visual.setBackground(gradient(colors.codeBg, colors.heroBg, 8));
+
+        orbitView = new ConnectorOrbitView(this);
+        visual.addView(orbitView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(compact ? 132 : 154)));
+
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.HORIZONTAL);
+        bottom.setGravity(Gravity.CENTER_VERTICAL);
+        bottom.setPadding(0, dp(8), 0, 0);
+        visual.addView(bottom);
+
+        bottom.addView(pill("MCP", BLUE, colors.primarySoft));
+        TextView copy = text("Arquitectura visual de conectores, tools y APIs", 12, MUTED, false);
+        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        copyParams.setMargins(dp(10), 0, 0, 0);
+        bottom.addView(copy, copyParams);
+        return visual;
+    }
+
+    private View connectorGallery() {
+        HorizontalScrollView scroller = new HorizontalScrollView(this);
+        scroller.setHorizontalScrollBarEnabled(false);
+        connectorGallery = new LinearLayout(this);
+        connectorGallery.setOrientation(LinearLayout.HORIZONTAL);
+        connectorGallery.setPadding(0, 0, dp(4), dp(10));
+        scroller.addView(connectorGallery);
+        for (String connector : connectors) {
+            connectorGallery.addView(connectorCard(connector), connectorCardParams());
+        }
+        refreshConnectorGallery();
+        return scroller;
+    }
+
+    private View connectorCard(String connector) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPadding(dp(10), dp(10), dp(10), dp(10));
+        card.setTag(connector);
+
+        TextView icon = text(connectorCode(connector), 15, Color.WHITE, true);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(gradient(connectorColor(connector), connectorAccent(connector), 8));
+        card.addView(icon, new LinearLayout.LayoutParams(dp(46), dp(46)));
+
+        TextView title = text(shortConnectorName(connector), 12, INK, true);
+        title.setGravity(Gravity.CENTER);
+        title.setSingleLine(false);
+        title.setPadding(0, dp(8), 0, 0);
+        card.addView(title, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView type = text(connectorType(connector), 10, MUTED, false);
+        type.setGravity(Gravity.CENTER);
+        type.setPadding(0, dp(2), 0, 0);
+        card.addView(type, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        card.setOnClickListener(v -> setSpinnerValue(connectorSpinner, connector));
+        return card;
+    }
+
+    private void refreshConnectorGallery() {
+        if (connectorGallery == null) return;
+        String selected = connectorSpinner == null || connectorSpinner.getSelectedItem() == null ? currentConnector : connectorSpinner.getSelectedItem().toString();
+        for (int i = 0; i < connectorGallery.getChildCount(); i++) {
+            View child = connectorGallery.getChildAt(i);
+            String connector = child.getTag() == null ? "" : child.getTag().toString();
+            boolean active = connector.equals(selected);
+            child.setBackground(active ? bg(colors.primarySoft, BLUE, 8) : bg(colors.buttonLight, LINE, 8));
+            child.setAlpha(active ? 1.0f : 0.82f);
         }
     }
 
@@ -658,6 +768,69 @@ public class MainActivity extends Activity {
         return view;
     }
 
+    private String connectorCode(String connector) {
+        if (connector.equals("WooCommerce")) return "WC";
+        if (connector.equals("WhatsApp Business")) return "WA";
+        if (connector.equals("Google Sheets")) return "GS";
+        if (connector.equals("Supabase")) return "SB";
+        if (connector.equals("WordPress")) return "WP";
+        if (connector.equals("Notion")) return "NO";
+        if (connector.equals("CRM propio")) return "CRM";
+        return "ERP";
+    }
+
+    private String shortConnectorName(String connector) {
+        if (connector.equals("WhatsApp Business")) return "WhatsApp";
+        if (connector.equals("Google Sheets")) return "Sheets";
+        if (connector.equals("CRM propio")) return "CRM";
+        if (connector.equals("ERP pequeno")) return "ERP";
+        return connector;
+    }
+
+    private String connectorType(String connector) {
+        if (connector.equals("WooCommerce")) return "Commerce";
+        if (connector.equals("WhatsApp Business")) return "Mensajes";
+        if (connector.equals("Google Sheets")) return "Datos";
+        if (connector.equals("Supabase")) return "Backend";
+        if (connector.equals("WordPress")) return "CMS";
+        if (connector.equals("Notion")) return "Docs";
+        if (connector.equals("CRM propio")) return "Ventas";
+        return "Gestion";
+    }
+
+    private String connectorDescription(String connector) {
+        if (connector.equals("WooCommerce")) return "Productos, pedidos, stock, clientes y reportes para tiendas online.";
+        if (connector.equals("WhatsApp Business")) return "Mensajes, plantillas, contactos y automatizaciones conversacionales.";
+        if (connector.equals("Google Sheets")) return "Hojas como base ligera para inventarios, leads, operaciones y reporting.";
+        if (connector.equals("Supabase")) return "Tablas, autenticacion, storage y acciones seguras sobre datos de producto.";
+        if (connector.equals("WordPress")) return "Entradas, paginas, usuarios y mantenimiento editorial con API REST.";
+        if (connector.equals("Notion")) return "Bases de datos, paginas, tareas y documentacion operativa.";
+        if (connector.equals("CRM propio")) return "Clientes, oportunidades, tickets, pipeline y procesos comerciales.";
+        return "Facturas, inventario, compras, pedidos internos y operaciones de back office.";
+    }
+
+    private int connectorColor(String connector) {
+        if (connector.equals("WooCommerce")) return Color.rgb(123, 75, 213);
+        if (connector.equals("WhatsApp Business")) return Color.rgb(37, 211, 102);
+        if (connector.equals("Google Sheets")) return Color.rgb(15, 157, 88);
+        if (connector.equals("Supabase")) return Color.rgb(62, 207, 142);
+        if (connector.equals("WordPress")) return Color.rgb(33, 117, 155);
+        if (connector.equals("Notion")) return Color.rgb(242, 242, 242);
+        if (connector.equals("CRM propio")) return Color.rgb(245, 158, 11);
+        return Color.rgb(236, 72, 153);
+    }
+
+    private int connectorAccent(String connector) {
+        if (connector.equals("WooCommerce")) return Color.rgb(0, 240, 255);
+        if (connector.equals("WhatsApp Business")) return Color.rgb(7, 94, 84);
+        if (connector.equals("Google Sheets")) return Color.rgb(110, 231, 183);
+        if (connector.equals("Supabase")) return Color.rgb(19, 78, 74);
+        if (connector.equals("WordPress")) return Color.rgb(96, 165, 250);
+        if (connector.equals("Notion")) return Color.rgb(64, 64, 64);
+        if (connector.equals("CRM propio")) return Color.rgb(239, 68, 68);
+        return Color.rgb(139, 92, 246);
+    }
+
     private TextView pill(String value, int fg, int bg) {
         TextView view = text(value, 11, fg, true);
         view.setGravity(Gravity.CENTER);
@@ -767,6 +940,12 @@ public class MainActivity extends Activity {
         return params;
     }
 
+    private LinearLayout.LayoutParams connectorCardParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(112), LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, dp(8), 0);
+        return params;
+    }
+
     private View divider() {
         View view = new View(this);
         view.setBackgroundColor(LINE);
@@ -799,5 +978,84 @@ public class MainActivity extends Activity {
     private int systemBarHeight(String name) {
         int resourceId = getResources().getIdentifier(name, "dimen", "android");
         return resourceId > 0 ? getResources().getDimensionPixelSize(resourceId) : 0;
+    }
+
+    private class ConnectorOrbitView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private String connector = "WooCommerce";
+
+        ConnectorOrbitView(Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        }
+
+        void setConnector(String connector) {
+            this.connector = connector == null ? "WooCommerce" : connector;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int width = getWidth();
+            int height = getHeight();
+            float centerX = width * 0.5f;
+            float centerY = height * 0.54f;
+            float radius = Math.min(width, height) * 0.28f;
+            int accent = connectorColor(connector);
+            int glow = connectorAccent(connector);
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(1));
+            paint.setColor(colors.heroLine);
+            canvas.drawLine(centerX, centerY, centerX - radius * 1.45f, centerY - radius * 0.8f, paint);
+            canvas.drawLine(centerX, centerY, centerX + radius * 1.45f, centerY - radius * 0.68f, paint);
+            canvas.drawLine(centerX, centerY, centerX - radius * 1.25f, centerY + radius * 0.78f, paint);
+            canvas.drawLine(centerX, centerY, centerX + radius * 1.25f, centerY + radius * 0.84f, paint);
+
+            drawNode(canvas, centerX - radius * 1.45f, centerY - radius * 0.8f, "API", BLUE);
+            drawNode(canvas, centerX + radius * 1.45f, centerY - radius * 0.68f, connectorCode(connector), accent);
+            drawNode(canvas, centerX - radius * 1.25f, centerY + radius * 0.78f, "DB", TEAL);
+            drawNode(canvas, centerX + radius * 1.25f, centerY + radius * 0.84f, "AI", GREEN);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShadowLayer(dp(18), 0, 0, glow);
+            paint.setColor(colors.card);
+            RectF core = new RectF(centerX - radius * 0.72f, centerY - radius * 0.52f, centerX + radius * 0.72f, centerY + radius * 0.52f);
+            canvas.drawRoundRect(core, dp(12), dp(12), paint);
+            paint.clearShadowLayer();
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(2));
+            paint.setColor(accent);
+            canvas.drawRoundRect(core, dp(12), dp(12), paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(18));
+            paint.setColor(Color.WHITE);
+            canvas.drawText("MCP", centerX, centerY + dp(6), paint);
+        }
+
+        private void drawNode(Canvas canvas, float x, float y, String label, int color) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShadowLayer(dp(12), 0, 0, color);
+            paint.setColor(colors.card);
+            RectF rect = new RectF(x - dp(25), y - dp(19), x + dp(25), y + dp(19));
+            canvas.drawRoundRect(rect, dp(10), dp(10), paint);
+            paint.clearShadowLayer();
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(1));
+            paint.setColor(color);
+            canvas.drawRoundRect(rect, dp(10), dp(10), paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(label.length() > 2 ? 10 : 12));
+            paint.setColor(Color.WHITE);
+            canvas.drawText(label, x, y + dp(4), paint);
+        }
     }
 }
