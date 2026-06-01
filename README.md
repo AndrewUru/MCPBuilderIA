@@ -1,12 +1,13 @@
 # MCP Builder IA
-
+<img width="1672" height="941" alt="mcp-bulider" src="https://github.com/user-attachments/assets/27e0ab3e-2783-42b7-9aad-bf182c93ce41" />
 MCP Builder IA es una aplicacion Android nativa para generar conectores MCP orientados a negocio. Desde un formulario permite definir un proyecto, elegir un conector, describir que debe hacer la IA, previsualizar los archivos generados y exportar un ZIP listo para revisar o ejecutar.
 
 ## Funcionalidades
 
 - Generacion de proyectos MCP en Node.js con `@modelcontextprotocol/sdk`.
 - Conectores base para WooCommerce, WhatsApp Business, WordPress, Google Sheets, Supabase, Notion, CRM propio y ERP pequeno.
-- Inferencia sencilla de tools segun el conector y la intencion escrita por el usuario.
+- Inferencia sencil
+la de tools segun el conector y la intencion escrita por el usuario.
 - Vista previa por secciones: tools, variables, codigo, documentacion y prompts.
 - Guardado y carga local de proyectos mediante `SharedPreferences`.
 - Exportacion a ZIP en el directorio de documentos de la app.
